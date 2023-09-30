@@ -1,142 +1,141 @@
-let SERVER_NAME = "product-api";
+let SERVER_NAME = 'products-api'
 let PORT = 5000;
-let HOST = "127.0.0.1";
+let HOST = '127.0.0.1';
 
-let errors = require("restify-errors");
-let restify = require("restify"),
-  // Get a persistence engine for the users
-  usersSave = require("save")("users"),
-  productsSave = require("save")("products"),
-  // Create the restify server
-  server = restify.createServer({ name: SERVER_NAME });
+const mongoose = require ("mongoose");
+let uristring = 'mongodb://127.0.0.1:27017/';
 
-server.listen(PORT, HOST, function () {
-  console.log("Server %s listening at %s", server.name, server.url);
-  console.log("**** Resources: ****");
-  console.log("********************");
-  console.log(" /productsSave");
-  console.log(" /productsSave/:id");
+// Makes db connection asynchronously
+mongoose.connect(uristring, {useNewUrlParser: true});
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', ()=>{
+  // we're connected!
+  console.log("!!!! Connected to db: " + uristring)
 });
+
+const productsSchema = new mongoose.Schema({
+  name: String, 
+  age: String
+});
+
+// Compiles the schema into a model, opening (or creating, if
+// nonexistent) the 'products' collection in the MongoDB database
+let productssModel = mongoose.model('productss', productsSchema);
+
+let errors = require('restify-errors');
+let restify = require('restify')
+
+  // Create the restify server
+  , server = restify.createServer({ name: SERVER_NAME})
+
+  server.listen(PORT, HOST, function () {
+  console.log('Server %s listening at %s', server.name, server.url)
+  console.log('**** Resources: ****')
+  console.log('********************')
+  console.log(' /productss')
+  console.log(' /productss/:id')  
+})
 
 server.use(restify.plugins.fullResponse());
 server.use(restify.plugins.bodyParser());
 
-// Get all Products in the system
-server.get("/products", function (req, res, next) {
-  console.log("GET /products params=>" + JSON.stringify(req.params));
-  // Find every entity within the given collection
-  productsSave.find({}, function (error, products) {
-    // Return all of the products in the system
-    res.send(products);
-  });
-});
+// Get all productss in the system
+server.get('/productss', function (req, res, next) {
+  console.log('GET /productss params=>' + JSON.stringify(req.params));
 
-// Get a single product by their product id
-server.get("/products/:id", function (req, res, next) {
-  console.log("received request" + JSON.stringify(req.params));
+  // Find every entity in db
+  productssModel.find({})
+    .then((productss)=>{
+        // Return all of the productss in the system
+        res.send(productss);
+        return next();
+    })
+    .catch((error)=>{
+        return next(new Error(JSON.stringify(error.errors)));
+    });
+})
 
-  // Find a single product by their id within save
-  productsSave.findOne({ _id: req.params.id }, function (error, product) {
-    // If there are any errors, pass them to next in the correct format
-    if (error) return next(new Error(JSON.stringify(error.errors)));
+// Get a single products by their products id
+server.get('/productss/:id', function (req, res, next) {
+  console.log('GET /productss/:id params=>' + JSON.stringify(req.params));
 
-    if (product) {
-      // Send the product if no issues
-      res.send(product);
-    } else {
-      // Send 404 header if the product doesn't exist
-      res.send(404);
-    }
-  });
-});
+  // Find a single products by their id in db
+  productssModel.findOne({ _id: req.params.id })
+    .then((products)=>{
+      console.log("found products: " + products);
+      if (products) {
+        // Send the products if no issues
+        res.send(products)
+      } else {
+        // Send 404 header if the products doesn't exist
+        res.send(404)
+      }
+      return next();
+    })
+    .catch((error)=>{
+        console.log("error: " + error);
+        return next(new Error(JSON.stringify(error.errors)));
+    });
+})
 
-// Create a new product
-server.post("/products", function (req, res, next) {
-  console.log("POST /product params=>" + JSON.stringify(req.params));
-  console.log("POST /product body=>" + JSON.stringify(req.body));
+// Create a new products
+server.post('/productss', function (req, res, next) {
+  console.log('POST /productss params=>' + JSON.stringify(req.params));
+  console.log('POST /productss body=>' + JSON.stringify(req.body));
 
   // validation of manadatory fields
-  if (req.body.productId === undefined) {
+  if (req.body.name === undefined ) {
     // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Product Id must be supplied"));
+    return next(new errors.BadRequestError('name must be supplied'))
   }
-  if (req.body.price === undefined) {
+  if (req.body.age === undefined ) {
     // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Price must be supplied"));
-  }
-  if (req.body.name === undefined) {
-    // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Name must be supplied"));
-  }
-  if (req.body.quantity === undefined) {
-    // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Quantity must be supplied"));
+    return next(new errors.BadRequestError('age must be supplied'))
   }
 
-  let newProduct = {
-    productId: req.body.productId,
-    name: req.body.name,
-    price: req.body.price,
-    quantity: req.body.quantity,
-  };
+  let newproducts = new productssModel({
+		name: req.body.name, 
+		age: req.body.age
+	});
 
-  // Create the product using the persistence engine
-  productsSave.create(newProduct, function (error, product) {
-    // If there are any errors, pass them to next in the correct format
-    if (error) return next(new Error(JSON.stringify(error.errors)));
-
-    // Send the product if no issues
-    res.send(201, product);
+  // Create the products and save to db
+  newproducts.save()
+    .then((products)=> {
+      console.log("saved products: " + products);
+      // Send the products if no issues
+      res.send(201, products);
+      return next();
+    })
+    .catch((error)=>{
+      console.log("error: " + error);
+      return next(new Error(JSON.stringify(error.errors)));
   });
-});
+})
 
-// Update a product by their id
-server.put("/products/:id", function (req, res, next) {
-  console.log("POST /products params=>" + JSON.stringify(req.params));
-  console.log("POST /products body=>" + JSON.stringify(req.body));
-  // validation of manadatory fields
-  if (req.body.productId === undefined) {
-    // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Product Id must be supplied"));
-  }
-  if (req.body.price === undefined) {
-    // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Price must be supplied"));
-  }
-  if (req.body.name === undefined) {
-    // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Name must be supplied"));
-  }
-  if (req.body.quantity === undefined) {
-    // If there are any errors, pass them to next in the correct format
-    return next(new errors.BadRequestError("Quantity must be supplied"));
-  }
-  let newProduct = {
-    _id: req.params.id,
-    productId: req.body.productId,
-    name: req.body.name,
-    price: req.body.price,
-    quantity: req.body.quantity,
-  };
 
-  // Update the product with the persistence engine
-  productsSave.update(newProduct, function (error, product) {
-    // If there are any errors, pass them to next in the correct format
-    if (error) return next(new Error(JSON.stringify(error.errors)));
+// Delete products with the given id
+server.del('/productss/:id', function (req, res, next) {
+  console.log('POST /productss params=>' + JSON.stringify(req.params));
+  // Delete the products in db
+  productssModel.findOneAndDelete({ _id: req.params.id })
+    .then((deletedproducts)=>{      
+      console.log("deleted products: " + deletedproducts);
+      if(deletedproducts){
+        res.send(200, deletedproducts);
+      } else {
+        res.send(404, "products not found");
+      }      
+      return next();
+    })
+    .catch(()=>{
+      console.log("error: " + error);
+      return next(new Error(JSON.stringify(error.errors)));
+    });
+})
 
-    // Send a 200 OK response
-    res.send(200);
-  });
-});
 
-// Delete product with the given id
-server.del("/products/:id", function (req, res, next) {
-  console.log("POST /products params=>" + JSON.stringify(req.params));
-  // Delete the product with the persistence engine
-  productsSave.delete(req.params.id, function (error, product) {
-    // If there are any errors, pass them to next in the correct format
-    if (error) return next(new Error(JSON.stringify(error.errors)));
-    // Send a 204 response
-    res.send(200).JSON({ success: true, message: "Item deleted successfully" });
-  });
-});
+// // Example of using promise
+// productssModel.findOne({ _id: req.params.id })
+// .then((products)=>{ }) // success
+// .catch((error)=>{ }); // error

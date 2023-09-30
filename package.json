@@ -1,7 +1,7 @@
 {
-    "name": "productsApi",
+    "name": "productApi",
     "version": "1.3.0",
-    "description": "REST API - Users - MongoDb",
+    "description": "REST API - productss - MongoDb",
     "main": "index.js",
     "engines": {
       "node": ">=4.1.1",
